@@ -1,11 +1,11 @@
 package main
 
 import (
+	"flag"
 	"log"
 	server "server-issuing-orders/Server"
 	storage "server-issuing-orders/Storage"
 	subscriber "server-issuing-orders/Subscriber"
-	"flag"
 )
 
 func mustToken() []string{
@@ -24,11 +24,13 @@ func mustToken() []string{
 func main(){
 	flags := mustToken()
 	ChanServerStorage := make(chan string)
+	defer close(ChanServerStorage)
 	sub := subscriber.New("listener", "test-cluster", "orders", 4222)
 	ch, err := sub.DataFromServer()
 	if err != nil{
 		log.Fatal(err)
 	}
+	defer close(ch)
 	stor, err := storage.New(ch, ChanServerStorage, flags[0], flags[1], "wb", "wb_table")
 	if err != nil{
 		log.Fatal(err)

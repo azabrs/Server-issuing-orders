@@ -33,6 +33,7 @@ func New(SubChannel chan []byte, ServChannelIn chan string,  user, password, dbn
 		Cache: make(map[string]common.Order),
 	}
 	ServChannelOut := make(chan common.ServerStorageData)
+	defer close(ServChannelOut)
 	stor.ServChannelOut = ServChannelOut
 	if err := stor.InitCache(); err != nil{
 		return storage{}, common.Wrap("Unable to initialize cache from postgres", err)
