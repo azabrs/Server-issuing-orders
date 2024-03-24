@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"log"
 	"server-issuing-orders/common"
+	"strconv"
+	"strings"
+
 	_ "github.com/lib/pq"
 )
 
@@ -42,7 +45,7 @@ func(s *storage) InitCache() error{
 	if err != nil{
 		return err
 	}
-	quer := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (OrderUID VARCHAR(30), data VARCHAR(600));", s.table_name)
+	quer := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (OrderUID VARCHAR(30), data VARCHAR(20000));", s.table_name)
 	if _, err := db.Exec(quer); err != nil{
 		return err
 	}
@@ -53,9 +56,23 @@ func(s *storage) InitCache() error{
 		return err
 	}
 	for rows.Next(){
-		var order common.Order
-		rows.Scan(order)
-		s.Cache[order.OrderUID] = order
+		order := new(common.Order)
+		var id string
+		var data string
+		var data_byte []byte
+		if err := rows.Scan(&id, &data); err != nil{
+			return err
+		}
+		data = strings.Trim(data, "[]")
+		temp := strings.Split(data, " ")
+		for _, val := range temp{
+			buf_temp, _ := strconv.Atoi(val)
+			data_byte = append(data_byte, byte(buf_temp))
+		}
+		if err := json.Unmarshal(data_byte, order); err != nil{
+			return err
+		}
+		s.Cache[id] = *order
 	}
 	return nil
 }
@@ -74,8 +91,8 @@ func (s *storage) Handler() error{
 					log.Printf("Order with %s UID is already in the database, order skipped", order.OrderUID)
 				} else{
 					s.Cache[order.OrderUID] = order
-					q := fmt.Sprintf("INSERT INTO %s VALUES('%s', '%v');", s.table_name, order.OrderUID, order)
-					log.Println(q)
+					temp, _ := json.Marshal(order)
+					q := fmt.Sprintf("INSERT INTO %s VALUES('%s', '%v');", s.table_name, order.OrderUID, temp)
 					if _, err := s.db.Exec(q); err != nil{
 						log.Fatal(err)
 					}

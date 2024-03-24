@@ -1,6 +1,7 @@
 package common
 
-import "time"
+import ("time"
+		"fmt")
 
 type Delivery struct {
 		Name    string `json:"name"`
@@ -58,4 +59,8 @@ type Order struct {
 type Server_storage_data struct{
 	Exist bool
 	Data []byte
+}
+
+func Wrap(msg string, err error) error{
+	return fmt.Errorf("%s : %w", msg, err)
 }

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"html/template"
 	"log"
 	"net/http"
@@ -52,12 +51,8 @@ func (serv *server)OrderUIDHandel(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("No such orderUID was found"))
 		log.Println("No such orderUID was found")
 	} else{
-		data_for_serv, err := json.Marshal(out_buf.Data)
 		log.Printf("Data found with orderUID %s", params.Get("q"))
-		if err != nil{
-			log.Fatal(err)
-		}
-		w.Write(data_for_serv)
+		w.Write(out_buf.Data)
 	}
 
 }
