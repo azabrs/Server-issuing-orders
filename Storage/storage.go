@@ -27,6 +27,7 @@ func New(sub_channel chan []byte, serv_channel_in chan string,  user, password, 
 		serv_channel_in: serv_channel_in,
 		PostgresDataSource: fmt.Sprintf("dbname=%s user=%s password=%s sslmode = disable", dbname, user, password),
 		table_name: table_name,
+		Cache: make(map[string]common.Order),
 	}
 	Serv_channel_out := make(chan common.Server_storage_data)
 	stor.Serv_channel_out = Serv_channel_out
@@ -54,10 +55,6 @@ func(s *storage) InitCache() error{
 	for rows.Next(){
 		var order common.Order
 		rows.Scan(order)
-		//err = json.Unmarshal([]byte(val), &order)
-		//if err != nil{
-		//	return err
-		//}
 		s.Cache[order.OrderUID] = order
 	}
 	return nil
@@ -68,6 +65,7 @@ func (s *storage) Handler() error{
 		for{
 			select{
 			case buf := <- s.sub_channel:
+				log.Println("Storage receive data from Nats streaming")
 				var order common.Order
 				if err := json.Unmarshal([]byte(buf), &order); err != nil{
 					log.Fatal(err)
@@ -76,12 +74,16 @@ func (s *storage) Handler() error{
 					log.Printf("Order with %s UID is already in the database, order skipped", order.OrderUID)
 				} else{
 					s.Cache[order.OrderUID] = order
-					if _, err := s.db.Exec("INSERT INTO $1 VALUES($2, $3);", s.table_name, order.OrderUID, order); err != nil{
+					q := fmt.Sprintf("INSERT INTO %s VALUES('%s', '%v');", s.table_name, order.OrderUID, order)
+					log.Println(q)
+					if _, err := s.db.Exec(q); err != nil{
 						log.Fatal(err)
 					}
+					log.Println("Data has been successfully added to the postgres")
 				}
 				
 			case buf := <- s.serv_channel_in:
+				log.Println("Storage received a request from the server")
 				if val, ok := s.Cache[buf]; ok {
 					buf_out, _ := json.Marshal(val)
 					s.Serv_channel_out <- common.Server_storage_data{Exist: true, Data: buf_out}

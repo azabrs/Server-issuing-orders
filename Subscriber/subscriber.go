@@ -2,7 +2,9 @@ package subscriber
 
 import (
 	"fmt"
+	"log"
 	"time"
+
 	"github.com/nats-io/stan.go"
 )
 
@@ -27,9 +29,11 @@ func (sub *subscriber)DataFromServer() (chan []byte, error) {
 	if err != nil{
 		return nil, err
 	}
+	log.Println("Nats streaming is listening")
 	ch := make(chan []byte)
 	_, err = sc.Subscribe("orders",
   	func(m *stan.Msg) {
+		log.Println("Subscriver recieve data from Nats streaming")
 		ch <- m.Data
 	}, stan.DeliverAllAvailable(), stan.AckWait(20*time.Second))
 	if err != nil{
