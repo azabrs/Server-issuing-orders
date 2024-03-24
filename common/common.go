@@ -56,7 +56,7 @@ type Order struct {
 }
 
 
-type Server_storage_data struct{
+type ServerStorageData struct{
 	Exist bool
 	Data []byte
 }

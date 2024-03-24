@@ -23,19 +23,19 @@ func mustToken() []string{
 
 func main(){
 	flags := mustToken()
-	chan_server_storage := make(chan string)
+	ChanServerStorage := make(chan string)
 	sub := subscriber.New("listener", "test-cluster", "orders", 4222)
 	ch, err := sub.DataFromServer()
 	if err != nil{
 		log.Fatal(err)
 	}
-	stor, err := storage.New(ch, chan_server_storage, flags[0], flags[1], "wb", "wb_table")
+	stor, err := storage.New(ch, ChanServerStorage, flags[0], flags[1], "wb", "wb_table")
 	if err != nil{
 		log.Fatal(err)
 	}
 	if err = stor.Handler(); err != nil{
 		log.Fatal(err)
 	}
-	serv := server.New("8080", chan_server_storage, stor.Serv_channel_out)
+	serv := server.New("8080", ChanServerStorage, stor.ServChannelOut)
 	serv.StartServer()
 }

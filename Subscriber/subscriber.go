@@ -10,23 +10,23 @@ import (
 )
 
 type subscriber struct{
-	Client_ID string
-	Cluster_ID string
-	Server_URL string
-	Channel_name string
+	ClientID string
+	ClusterID string
+	ServerURL string
+	ChannelName string
 }
 
-func New(Client_ID, Cluster_ID, Channel_name string, Server_port int) subscriber{
+func New(ClientID, ClusterID, ChannelName string, ServerPort int) subscriber{
 	return subscriber{
-		Client_ID: Client_ID,
-		Cluster_ID: Cluster_ID,
-		Channel_name: Channel_name,
-		Server_URL: fmt.Sprintf("nats://localhost:%d", Server_port),
+		ClientID: ClientID,
+		ClusterID: ClusterID,
+		ChannelName: ChannelName,
+		ServerURL: fmt.Sprintf("nats://localhost:%d", ServerPort),
 	}
 }
 
 func (sub *subscriber)DataFromServer() (chan []byte, error) {
-	sc, err := stan.Connect(sub.Cluster_ID, sub.Client_ID, stan.NatsURL(sub.Server_URL))
+	sc, err := stan.Connect(sub.ClusterID, sub.ClientID, stan.NatsURL(sub.ServerURL))
 	if err != nil{
 		return nil, common.Wrap("Unable to connect to NATS streaming server", err)
 	}

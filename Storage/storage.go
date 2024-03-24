@@ -16,24 +16,24 @@ import (
 type storage struct{
 	Cache map[string] common.Order
 	PostgresDataSource string
-	sub_channel chan []byte
-	serv_channel_in chan string
-	Serv_channel_out chan common.Server_storage_data
-	table_name string
+	SubChannel chan []byte
+	ServChannelIn chan string
+	ServChannelOut chan common.ServerStorageData
+	TableName string
 	db *sql.DB
 
 }
 
-func New(sub_channel chan []byte, serv_channel_in chan string,  user, password, dbname, table_name string) (storage, error){
+func New(SubChannel chan []byte, ServChannelIn chan string,  user, password, dbname, TableName string) (storage, error){
 	stor := storage{
-		sub_channel: sub_channel,
-		serv_channel_in: serv_channel_in,
+		SubChannel: SubChannel,
+		ServChannelIn: ServChannelIn,
 		PostgresDataSource: fmt.Sprintf("dbname=%s user=%s password=%s sslmode = disable", dbname, user, password),
-		table_name: table_name,
+		TableName: TableName,
 		Cache: make(map[string]common.Order),
 	}
-	Serv_channel_out := make(chan common.Server_storage_data)
-	stor.Serv_channel_out = Serv_channel_out
+	ServChannelOut := make(chan common.ServerStorageData)
+	stor.ServChannelOut = ServChannelOut
 	if err := stor.InitCache(); err != nil{
 		return storage{}, common.Wrap("Unable to initialize cache from postgres", err)
 	}
@@ -45,12 +45,12 @@ func(s *storage) InitCache() error{
 	if err != nil{
 		common.Wrap("Сan't connect to the database", err)
 	}
-	quer := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (OrderUID VARCHAR(30), data VARCHAR(20000));", s.table_name)
+	quer := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (OrderUID VARCHAR(30), data VARCHAR(20000));", s.TableName)
 	if _, err := db.Exec(quer); err != nil{
 		common.Wrap("Problem with the table", err)
 	}
 	s.db = db
-	quer = fmt.Sprintf("SELECT * FROM %s", s.table_name)
+	quer = fmt.Sprintf("SELECT * FROM %s", s.TableName)
 	rows, err := db.Query(quer)
 	if err != nil{
 		return common.Wrap("Data could not be retrieved from the table", err)
@@ -59,7 +59,7 @@ func(s *storage) InitCache() error{
 		order := new(common.Order)
 		var id string
 		var data string
-		var data_byte []byte
+		var dataByte []byte
 		if err := rows.Scan(&id, &data); err != nil{
 			return common.Wrap("The data received from the table could not be converted", err)
 		}
@@ -67,9 +67,9 @@ func(s *storage) InitCache() error{
 		temp := strings.Split(data, " ")
 		for _, val := range temp{
 			buf_temp, _ := strconv.Atoi(val)
-			data_byte = append(data_byte, byte(buf_temp))
+			dataByte = append(dataByte, byte(buf_temp))
 		}
-		if err := json.Unmarshal(data_byte, order); err != nil{
+		if err := json.Unmarshal(dataByte, order); err != nil{
 			return common.Wrap("The data received from the table could not be converted", err)
 		}
 		s.Cache[id] = *order
@@ -81,7 +81,7 @@ func (s *storage) Handler() error{
 	go func(){
 		for{
 			select{
-			case buf := <- s.sub_channel:
+			case buf := <- s.SubChannel:
 				log.Println("Storage receive data from Nats streaming")
 				var order common.Order
 				if err := json.Unmarshal([]byte(buf), &order); err != nil{
@@ -92,20 +92,20 @@ func (s *storage) Handler() error{
 				} else{
 					s.Cache[order.OrderUID] = order
 					temp, _ := json.Marshal(order)
-					q := fmt.Sprintf("INSERT INTO %s VALUES('%s', '%v');", s.table_name, order.OrderUID, temp)
+					q := fmt.Sprintf("INSERT INTO %s VALUES('%s', '%v');", s.TableName, order.OrderUID, temp)
 					if _, err := s.db.Exec(q); err != nil{
 						log.Fatal(err)
 					}
 					log.Println("Data has been successfully added to the postgres")
 				}
 				
-			case buf := <- s.serv_channel_in:
+			case buf := <- s.ServChannelIn:
 				log.Println("Storage received a request from the server")
 				if val, ok := s.Cache[buf]; ok {
 					buf_out, _ := json.Marshal(val)
-					s.Serv_channel_out <- common.Server_storage_data{Exist: true, Data: buf_out}
+					s.ServChannelOut <- common.ServerStorageData{Exist: true, Data: buf_out}
 				} else{
-					s.Serv_channel_out <- common.Server_storage_data{Exist: false, Data: nil}
+					s.ServChannelOut <- common.ServerStorageData{Exist: false, Data: nil}
 				}
 
 			}
