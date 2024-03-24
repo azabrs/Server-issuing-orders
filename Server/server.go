@@ -25,7 +25,6 @@ func New(host string, serv_channel_out chan string, serv_channel_in chan common.
 		host: host,
 		serv_channel_out: serv_channel_out,
 		serv_channel_in: serv_channel_in,
-
 	}
 
 }

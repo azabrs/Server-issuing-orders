@@ -3,6 +3,7 @@ package subscriber
 import (
 	"fmt"
 	"log"
+	"server-issuing-orders/common"
 	"time"
 
 	"github.com/nats-io/stan.go"
@@ -27,7 +28,7 @@ func New(Client_ID, Cluster_ID, Channel_name string, Server_port int) subscriber
 func (sub *subscriber)DataFromServer() (chan []byte, error) {
 	sc, err := stan.Connect(sub.Cluster_ID, sub.Client_ID, stan.NatsURL(sub.Server_URL))
 	if err != nil{
-		return nil, err
+		return nil, common.Wrap("Unable to connect to NATS streaming server", err)
 	}
 	log.Println("Nats streaming is listening")
 	ch := make(chan []byte)
@@ -37,7 +38,7 @@ func (sub *subscriber)DataFromServer() (chan []byte, error) {
 		ch <- m.Data
 	}, stan.DeliverAllAvailable(), stan.AckWait(20*time.Second))
 	if err != nil{
-		return nil, err
+		return nil, common.Wrap("Unable to connect to NATS streaming server", err)
 	}
 	return ch, nil
 }

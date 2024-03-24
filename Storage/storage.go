@@ -35,7 +35,7 @@ func New(sub_channel chan []byte, serv_channel_in chan string,  user, password, 
 	Serv_channel_out := make(chan common.Server_storage_data)
 	stor.Serv_channel_out = Serv_channel_out
 	if err := stor.InitCache(); err != nil{
-		return storage{}, err
+		return storage{}, common.Wrap("Unable to initialize cache from postgres", err)
 	}
 	return stor, nil
 }
@@ -43,17 +43,17 @@ func New(sub_channel chan []byte, serv_channel_in chan string,  user, password, 
 func(s *storage) InitCache() error{
 	db, err := sql.Open("postgres", s.PostgresDataSource)
 	if err != nil{
-		return err
+		common.Wrap("Сan't connect to the database", err)
 	}
 	quer := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (OrderUID VARCHAR(30), data VARCHAR(20000));", s.table_name)
 	if _, err := db.Exec(quer); err != nil{
-		return err
+		common.Wrap("Problem with the table", err)
 	}
 	s.db = db
 	quer = fmt.Sprintf("SELECT * FROM %s", s.table_name)
 	rows, err := db.Query(quer)
 	if err != nil{
-		return err
+		return common.Wrap("Data could not be retrieved from the table", err)
 	}
 	for rows.Next(){
 		order := new(common.Order)
@@ -61,7 +61,7 @@ func(s *storage) InitCache() error{
 		var data string
 		var data_byte []byte
 		if err := rows.Scan(&id, &data); err != nil{
-			return err
+			return common.Wrap("The data received from the table could not be converted", err)
 		}
 		data = strings.Trim(data, "[]")
 		temp := strings.Split(data, " ")
@@ -70,7 +70,7 @@ func(s *storage) InitCache() error{
 			data_byte = append(data_byte, byte(buf_temp))
 		}
 		if err := json.Unmarshal(data_byte, order); err != nil{
-			return err
+			return common.Wrap("The data received from the table could not be converted", err)
 		}
 		s.Cache[id] = *order
 	}
