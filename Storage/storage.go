@@ -6,19 +6,16 @@ import (
 	"fmt"
 	"log"
 	"server-issuing-orders/common"
+	_ "github.com/lib/pq"
 )
-type send_data struct{
-	Exist bool
-	Data []byte
 
-}
 
 type storage struct{
 	Cache map[string] common.Order
 	PostgresDataSource string
 	sub_channel chan []byte
 	serv_channel_in chan string
-	serv_channel_out chan send_data
+	Serv_channel_out chan common.Server_storage_data
 	table_name string
 	db *sql.DB
 
@@ -28,11 +25,11 @@ func New(sub_channel chan []byte, serv_channel_in chan string,  user, password, 
 	stor := storage{
 		sub_channel: sub_channel,
 		serv_channel_in: serv_channel_in,
-		PostgresDataSource: fmt.Sprint("dbname=%s user=%s password=%s sslmode = disable", dbname, user, password),
+		PostgresDataSource: fmt.Sprintf("dbname=%s user=%s password=%s sslmode = disable", dbname, user, password),
 		table_name: table_name,
 	}
-	serv_channel_out := make(chan send_data)
-	stor.serv_channel_out = serv_channel_out
+	Serv_channel_out := make(chan common.Server_storage_data)
+	stor.Serv_channel_out = Serv_channel_out
 	if err := stor.InitCache(); err != nil{
 		return storage{}, err
 	}
@@ -44,21 +41,23 @@ func(s *storage) InitCache() error{
 	if err != nil{
 		return err
 	}
-	if _, err := db.Exec("CREATE TABLE IF NOT EXIST $1 (OrderUID VARCHAR(30), data VARCHAR(600));", s.table_name); err != nil{
+	quer := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (OrderUID VARCHAR(30), data VARCHAR(600));", s.table_name)
+	if _, err := db.Exec(quer); err != nil{
 		return err
 	}
 	s.db = db
-	rows, err := db.Query("SELECT * FROM $1", s.table_name)
+	quer = fmt.Sprintf("SELECT * FROM %s", s.table_name)
+	rows, err := db.Query(quer)
 	if err != nil{
 		return err
 	}
-	r, _ := rows.Columns()
-	for _, val := range r{
+	for rows.Next(){
 		var order common.Order
-		err = json.Unmarshal([]byte(val), &order)
-		if err != nil{
-			return err
-		}
+		rows.Scan(order)
+		//err = json.Unmarshal([]byte(val), &order)
+		//if err != nil{
+		//	return err
+		//}
 		s.Cache[order.OrderUID] = order
 	}
 	return nil
@@ -85,9 +84,9 @@ func (s *storage) Handler() error{
 			case buf := <- s.serv_channel_in:
 				if val, ok := s.Cache[buf]; ok {
 					buf_out, _ := json.Marshal(val)
-					s.serv_channel_out <- send_data{Exist: true, Data: buf_out}
+					s.Serv_channel_out <- common.Server_storage_data{Exist: true, Data: buf_out}
 				} else{
-					s.serv_channel_out <- send_data{Exist: false, Data: nil}
+					s.Serv_channel_out <- common.Server_storage_data{Exist: false, Data: nil}
 				}
 
 			}

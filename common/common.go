@@ -53,3 +53,9 @@ type Order struct {
 	DateCreated       time.Time `json:"date_created"`
 	OofShard          string    `json:"oof_shard"`
 }
+
+
+type Server_storage_data struct{
+	Exist bool
+	Data []byte
+}
